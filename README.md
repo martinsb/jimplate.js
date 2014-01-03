@@ -3,6 +3,8 @@ Jimplate.js - Javascript client-side template engine
 
 Instead of traditional string concatenation Jimplate uses evaluated code (`new Function`) and DOM methods to construct HTML elements from a given template and model. Jimplate uses John Resig's [HTMLParser](http://ejohn.org/blog/pure-javascript-html-parser/)
 
+More explanation [here](http://barinskis.me/blog/2014/01/01/a-faster-dom-with-jit/)
+
 Usage
 ------------------
 * Add placeholder for your elements
