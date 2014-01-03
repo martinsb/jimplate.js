@@ -41,6 +41,13 @@
 	<button id="go">Run tests</button>
 	<p>Notice: results of these performance tests will be sent to <a href="http://www.browserscope.org/">Browserscope.org</a>. <a href="http://www.browserscope.org/user/tests/table/agt1YS1wcm9maWxlcnIRCxIEVGVzdBiAgICExKaSCww?v=3&amp;layout=simple">All the collected results</a>.</p>	
 	<table id="the-results">
+		<thead>
+			<tr>
+				<th>Name of the test</th>
+				<th>Ops/sec.</th>
+			</tr>
+		</thead>
+		<tbody></tbody>
 	</table>
 	<ul id="the-list">
 
@@ -188,7 +195,7 @@
 				var len = suite.length;
 				for (var i = 0; i < len; i++) {
 					var bench = suite[i],
-						row = table.insertRow(),
+						row = table.insertRow(-1),
 						title = doc.createElement('td'),
 						result = doc.createElement('td');
 					row.setAttribute('data-name', bench.name);
