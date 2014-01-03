@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta name="viewport" content="width=device-width, user-scalable=no" />
+	<title>innerHTML vs. DOM benchmarks</title>
+	<style>
+		ul, li {
+			padding: 0;
+			margin: 0;
+		}
+		.person {
+			list-style: none;
+		}
+		.person img{
+			float:left;
+		}
+
+		dt:after {
+			content: ':';
+		}
+
+		.person:after {
+			content: '';
+			display: block;
+			clear: both;
+		}
+		.person dl {
+			margin-left: 64px;
+		}
+
+		table {
+			width: 100%;
+		}
+		.test-result {
+			text-align: right;
+		}
+	</style>
+</head>
+<body>
+	<button id="go">Run tests</button>
+	<table id="the-results">
+	</table>
+	<ul id="the-list">
+
+	</ul>
+	<script src="../htmlparser.js"></script>
+	<script src="../jimplate.js"></script>
+	<script src="lodash.js"></script>
+	<script src="benchmark.js"></script>
+	<script>
+		var _bTestResults = {
+
+		};
+	</script>
+	<script>
+		(function(win){
+			var doc = win.document;
+
+			function withHTMLConcatenation(list, entries) {
+				var i, len = entries.length, e,
+					chunks = ['<li class="person">'];
+				for (i = 0; i < len; i++) {
+					e = entries[i];
+					chunks.push('<img src="img/');
+					chunks.push(e.gender);
+					chunks.push('.png" />');
+					chunks.push('<dl><dt>First Name</dt>');
+					chunks.push('<dd>');
+					chunks.push(e.firstName);
+					chunks.push('</dd><dt>Last Name</dt>')
+					chunks.push('<dd>');
+					chunks.push(e.lastName);
+					chunks.push('</dd>')
+					chunks.push('</dl>')
+				}
+				chunks.push('</li>');
+				list.innerHTML = chunks.join('');
+			}
+
+			function withDOMMethods(list, entries) {
+				var i, len = entries.length, e,
+					fragment = doc.createDocumentFragment();
+				for (i = 0; i < len; i++) {
+					var e = entries[i],
+						item = doc.createElement('li'),
+						dl = doc.createElement('dl'),
+						img = doc.createElement('img'),
+						firstNameTerm = doc.createElement('dt'),
+						firstNameDef = doc.createElement('dd'),
+						lastNameTerm = doc.createElement('dt'),
+						lastNameDef = doc.createElement('dd');
+					item.setAttribute('class', 'person');
+
+					img.setAttribute('src', 'img/' + e.gender + '.png');
+					item.appendChild(img);
+
+					firstNameTerm.appendChild(doc.createTextNode('First Name'));
+					dl.appendChild(firstNameTerm);
+					firstNameDef.appendChild(doc.createTextNode(e.firstName));
+					dl.appendChild(firstNameDef);
+
+					lastNameTerm.appendChild(doc.createTextNode('Last Name'));
+					dl.appendChild(lastNameTerm);
+					lastNameDef.appendChild(doc.createTextNode(e.lastName));
+					dl.appendChild(lastNameDef);
+
+					item.appendChild(dl);
+
+					fragment.appendChild(item);
+				}
+				list.appendChild(fragment);
+			}
+
+			function withJimplate(list, template, entries) {
+				var i, len = entries.length,
+					fragment = doc.createDocumentFragment();
+				for (i = 0; i < len; i++) {
+					var e = entries[i];
+					fragment.appendChild(template(e));
+				}
+				list.appendChild(fragment);
+			}
+
+			function withJimplateInLoop(list, template, entries) {
+				var fragment = doc.createDocumentFragment();
+				fragment.appendChild(template(entries));
+				list.appendChild(fragment);
+			}
+
+			function extractResult(bench) {
+				return Math.round(1 / bench.stats.mean);
+			}
+
+			var suite = new Benchmark.Suite(),
+				list, dataInput,
+				table;			
+			suite.on('cycle', function(event) {
+				var bench = event.target,
+					cell = table.querySelector('[data-name="'  + bench.name + '"] .test-result');
+				if (cell) {
+					cell.innerHTML = extractResult(bench);
+				}
+			});
+			suite.on('complete', function() {
+				var i,
+					len = this.length;
+				for (i = 0; i < len; i++) {
+					var bench = this[i],
+						result = extractResult(bench);
+					_bTestResults[bench.name] = result;	
+				}
+
+				var testKey = 'agt1YS1wcm9maWxlcnIRCxIEVGVzdBiAgICExKaSCww',
+					sandboxId = (function() {
+						var search = win.location.search;
+						if (search.length) {
+							search = search.substring(1);
+							var vars = search.split('&'),
+								len = vars.length;
+							for (var i = 0; i < len; i++) {
+								var pair = vars[i].split('=');
+								if (win.decodeURIComponent(pair[0]) == 'sandbox') {
+									return win.decodeURIComponent(pair[1]);
+								}
+							}
+							return null;
+						}
+					})();
+				var newScript = doc.createElement('script'),
+					first = doc.getElementsByTagName('script')[0];
+				newScript.src = 'http://www.browserscope.org/user/beacon/' + testKey;
+				if (sandboxId) {
+					newScript.src += '?sandboxid=' + sandboxId;
+				}
+				first.parentNode.insertBefore(newScript, first);
+			});
+
+			var runTests = function() {
+				suite.run({
+					'async': true					
+				});				
+			};
+
+			var initializeResultsTable = function() {
+				table = doc.getElementById('the-results');
+				var len = suite.length;
+				for (var i = 0; i < len; i++) {
+					var bench = suite[i],
+						row = table.insertRow(),
+						title = doc.createElement('td'),
+						result = doc.createElement('td');
+					row.setAttribute('data-name', bench.name);
+					title.appendChild(doc.createTextNode(bench.name));
+
+					result.className = 'test-result';
+
+					row.appendChild(title);
+					row.appendChild(result);					
+				}
+			};
+
+			doc.addEventListener('DOMContentLoaded', function() {
+				dataInput = doc.getElementById('names-db').innerHTML;
+				list = doc.getElementById('the-list');
+
+				suite.add('innerHTML',
+					function() {
+						list.innerHTML = '';
+						withHTMLConcatenation(list, JSON.parse(dataInput));
+					}
+				);
+				suite.add('DOM methods',
+					function() {
+						list.innerHTML = '';
+						withDOMMethods(list, JSON.parse(dataInput));
+					}
+				);
+				suite.add('Jimplate',
+					(function() {
+						var template = Jimplate(doc.getElementById('t-person-entry').innerHTML);
+						return function() {
+							list.innerHTML = '';
+							withJimplate(list, template, JSON.parse(dataInput));
+						};
+					})()
+				);
+				suite.add('Jimplate (in loop)',
+					(function() {
+						var template = Jimplate(doc.getElementById('t-person-entry').innerHTML, { loop: true });
+						return function() {
+							list.innerHTML = '';
+							withJimplateInLoop(list, template, JSON.parse(dataInput));
+						};
+					})()
+				);
+
+				initializeResultsTable();
+
+				var button = doc.getElementById('go');
+				button.addEventListener('click', runTests, false);
+			}, false);
+		})(this);
+	</script>
+	<script id="t-person-entry" type="text/x-template">
+		<li class="person">
+			<img src="img/${gender}.png"/>
+			<dl>
+				<dt>First Name</dt>
+				<dd>${firstName}</dd>
+				<dt>Last Name</dt>
+				<dd>${lastName}</dd>
+			</dl>
+		</li>
+	</script>
+	<script id="names-db" type="text/json">
+	[
+		{ "firstName": "Scarlett", "lastName": "Prince", "gender": "female" },
+		{ "firstName": "Charlie", "lastName": "Morrell", "gender": "male" },
+		{ "firstName": "Alexa", "lastName": "Coley", "gender": "female" },
+		{ "firstName": "Anderson", "lastName": "Cohen", "gender": "male" },
+		{ "firstName": "Sabrina", "lastName": "Loomis", "gender": "female" },
+		{ "firstName": "Christian", "lastName": "Lunsford", "gender": "male" },
+		{ "firstName": "Edwin", "lastName": "Hutchison", "gender": "male" },
+		{ "firstName": "Jesse", "lastName": "Godfrey", "gender": "male" },
+		{ "firstName": "Riley", "lastName": "Aaron", "gender": "female" },
+		{ "firstName": "Ronald", "lastName": "Munoz", "gender": "male" },
+		{ "firstName": "Alejandro", "lastName": "Blair", "gender": "male" },
+		{ "firstName": "Jessica", "lastName": "Nicholson", "gender": "female" },
+		{ "firstName": "Larry", "lastName": "Humphreys", "gender": "male" },
+		{ "firstName": "Adrianna", "lastName": "Stacy", "gender": "female" },
+		{ "firstName": "Christina", "lastName": "Miner", "gender": "female" },
+		{ "firstName": "Jesus", "lastName": "Duarte", "gender": "male" },
+		{ "firstName": "Katelyn", "lastName": "Mcneill", "gender": "female" },
+		{ "firstName": "Kiara", "lastName": "Bruno", "gender": "female" },
+		{ "firstName": "Dallas", "lastName": "Finn", "gender": "male" },
+		{ "firstName": "Wesley", "lastName": "Engel", "gender": "male" },
+		{ "firstName": "Giselle", "lastName": "Tomlinson", "gender": "female" },
+		{ "firstName": "Jayce", "lastName": "Shah", "gender": "male" },
+		{ "firstName": "Layla", "lastName": "Read", "gender": "female" },
+		{ "firstName": "Brett", "lastName": "Boston", "gender": "male" },
+		{ "firstName": "Caitlyn", "lastName": "Bergeron", "gender": "female" },
+		{ "firstName": "Pablo", "lastName": "Fontaine", "gender": "male" },
+		{ "firstName": "Colton", "lastName": "Bledsoe", "gender": "male" },
+		{ "firstName": "Caden", "lastName": "Crain", "gender": "male" },
+		{ "firstName": "Jude", "lastName": "Nolen", "gender": "male" },
+		{ "firstName": "Arianna", "lastName": "Zavala", "gender": "female" },
+		{ "firstName": "Parker", "lastName": "Myers", "gender": "male" },
+		{ "firstName": "Julianna", "lastName": "Gresham", "gender": "female" },
+		{ "firstName": "Eva", "lastName": "Ratcliff", "gender": "female" },
+		{ "firstName": "Camila", "lastName": "Slade", "gender": "female" },
+		{ "firstName": "Lily", "lastName": "Wilhelm", "gender": "female" },
+		{ "firstName": "Grace", "lastName": "Herrington", "gender": "female" },
+		{ "firstName": "William", "lastName": "Hodge", "gender": "male" },
+		{ "firstName": "Maria", "lastName": "Aiken", "gender": "female" },
+		{ "firstName": "Sophia", "lastName": "Barclay", "gender": "female" },
+		{ "firstName": "George", "lastName": "Hammons", "gender": "male" },
+		{ "firstName": "Jason", "lastName": "Strauss", "gender": "male" },
+		{ "firstName": "Taylor", "lastName": "Ackerman", "gender": "female" },
+		{ "firstName": "Hudson", "lastName": "Harbin", "gender": "male" },
+		{ "firstName": "Camryn", "lastName": "Burkhart", "gender": "female" },
+		{ "firstName": "Jaiden", "lastName": "Dyson", "gender": "male" },
+		{ "firstName": "Shane", "lastName": "Deloach", "gender": "male" },
+		{ "firstName": "Bryson", "lastName": "Kruger", "gender": "male" },
+		{ "firstName": "Makenzie", "lastName": "Pressley", "gender": "female" },
+		{ "firstName": "Thomas", "lastName": "Roberts", "gender": "male" },
+		{ "firstName": "Nolan", "lastName": "Kurtz", "gender": "male" },
+		{ "firstName": "Marcus", "lastName": "Heath", "gender": "male" },
+		{ "firstName": "Marshall", "lastName": "Metzger", "gender": "male" },
+		{ "firstName": "Jackson", "lastName": "Coon", "gender": "male" },
+		{ "firstName": "Natalia", "lastName": "Lanier", "gender": "female" },
+		{ "firstName": "Camila", "lastName": "Lunsford", "gender": "female" },
+		{ "firstName": "Cristian", "lastName": "Thompson", "gender": "male" },
+		{ "firstName": "Camila", "lastName": "Sinclair", "gender": "female" },
+		{ "firstName": "Edwin", "lastName": "Waggoner", "gender": "male" },
+		{ "firstName": "Parker", "lastName": "Mattox", "gender": "male" },
+		{ "firstName": "Luna", "lastName": "Kline", "gender": "female" },
+		{ "firstName": "Molly", "lastName": "Cuevas", "gender": "female" },
+		{ "firstName": "Dante", "lastName": "Scroggins", "gender": "male" },
+		{ "firstName": "Anthony", "lastName": "Manuel", "gender": "male" },
+		{ "firstName": "Edgar", "lastName": "Compton", "gender": "male" },
+		{ "firstName": "Natalie", "lastName": "Mckinley", "gender": "female" },
+		{ "firstName": "Levi", "lastName": "Bell", "gender": "male" },
+		{ "firstName": "Juan", "lastName": "Schumacher", "gender": "male" },
+		{ "firstName": "Joselyn", "lastName": "Pressley", "gender": "female" },
+		{ "firstName": "Lucas", "lastName": "Contreras", "gender": "male" },
+		{ "firstName": "Aaliyah", "lastName": "Guillen", "gender": "female" },
+		{ "firstName": "Nataly", "lastName": "Steiner", "gender": "female" },
+		{ "firstName": "Grayson", "lastName": "Hodges", "gender": "male" },
+		{ "firstName": "Josie", "lastName": "Compton", "gender": "female" },
+		{ "firstName": "Walter", "lastName": "Marrero", "gender": "male" },
+		{ "firstName": "Leslie", "lastName": "Valenzuela", "gender": "female" },
+		{ "firstName": "Gabriella", "lastName": "Adair", "gender": "female" },
+		{ "firstName": "Nevaeh", "lastName": "Fortier", "gender": "female" },
+		{ "firstName": "Emmanuel", "lastName": "Hoover", "gender": "male" },
+		{ "firstName": "Aaron", "lastName": "Robbins", "gender": "male" },
+		{ "firstName": "Josie", "lastName": "Cloud", "gender": "female" },
+		{ "firstName": "Natalie", "lastName": "Jung", "gender": "female" },
+		{ "firstName": "Jordan", "lastName": "Fagan", "gender": "female" },
+		{ "firstName": "Eli", "lastName": "Brink", "gender": "male" },
+		{ "firstName": "Joel", "lastName": "Wilbur", "gender": "male" },
+		{ "firstName": "Elizabeth", "lastName": "Love", "gender": "female" },
+		{ "firstName": "Kendra", "lastName": "Willis", "gender": "female" },
+		{ "firstName": "Erin", "lastName": "Stuart", "gender": "female" },
+		{ "firstName": "Ali", "lastName": "Richards", "gender": "male" },
+		{ "firstName": "Savannah", "lastName": "Archuleta", "gender": "female" },
+		{ "firstName": "Trenton", "lastName": "Puckett", "gender": "male" },
+		{ "firstName": "Sarah", "lastName": "Geiger", "gender": "female" },
+		{ "firstName": "Alice", "lastName": "Kern", "gender": "female" },
+		{ "firstName": "Iris", "lastName": "Tomlinson", "gender": "female" },
+		{ "firstName": "Matthew", "lastName": "Barton", "gender": "male" },
+		{ "firstName": "Amber", "lastName": "Poirier", "gender": "female" },
+		{ "firstName": "Hannah", "lastName": "Rosen", "gender": "female" },
+		{ "firstName": "Colton", "lastName": "Russ", "gender": "male" },
+		{ "firstName": "Esmeralda", "lastName": "Dow", "gender": "female" },
+		{ "firstName": "Mitchell", "lastName": "Villanueva", "gender": "male" },
+		{ "firstName": "Caitlyn", "lastName": "Mize", "gender": "female" }
+	]
+	</script>
+</body>
+</html>
