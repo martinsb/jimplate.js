@@ -84,6 +84,9 @@
 				}
 				chunks.push('</li>');
 				list.innerHTML = chunks.join('');
+				setTimeout(function() {
+					deferred.resolve();
+				}, 0);
 			}
 
 			function withDOMMethods(list, entries) {
@@ -118,6 +121,9 @@
 					fragment.appendChild(item);
 				}
 				list.appendChild(fragment);
+				setTimeout(function() {
+					deferred.resolve();
+				}, 0);
 			}
 
 			function withJimplate(list, template, entries) {
@@ -128,12 +134,18 @@
 					fragment.appendChild(template(e));
 				}
 				list.appendChild(fragment);
+				setTimeout(function() {
+					deferred.resolve();
+				}, 0);
 			}
 
 			function withJimplateInLoop(list, template, entries) {
 				var fragment = doc.createDocumentFragment();
 				fragment.appendChild(template(entries));
 				list.appendChild(fragment);
+				setTimeout(function() {
+					deferred.resolve();
+				}, 0);
 			}
 
 			function extractResult(bench) {
